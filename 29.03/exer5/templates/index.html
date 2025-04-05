@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Tarefas</title>
+</head>
+<body>
+    <h1>Gerenciador de Tarefas</h1>
+    
+    <form id="taskForm">
+        <input type="hidden" id="tarefaId">
+        <label for="nome">Nome:</label>
+        <input type="text" id="nome" name="nome" required>
+        <button type="submit">Salvar</button>
+    </form>
+
+    <h2>Lista de Tarefas</h2>
+    <ul id="listaTarefas"></ul>
+
+    <script>
+        let token = null;
+        const listaTarefas = document.getElementById('listaTarefas');
+        const form = document.getElementById('taskForm');
+
+        // Auto login function
+        async function autoLogin() {
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    usuario: 'admin',
+                    senha: '1234'
+                })
+            });
+            const data = await response.json();
+            if (data.token) {
+                token = data.token;
+                carregarTarefas();
+            }
+        }
+
+        // Load tasks with token
+        async function carregarTarefas() {
+            const response = await fetch('/tarefas', {
+                headers: { 'x-access-token': token }
+            });
+            const tarefas = await response.json();
+            listaTarefas.innerHTML = '';
+            tarefas.forEach(tarefa => {
+                const li = document.createElement('li');
+                li.textContent = `ID: ${tarefa.id} - Nome: ${tarefa.nome} `;
+
+                const editarBtn = document.createElement('button');
+                editarBtn.textContent = 'Editar';
+                editarBtn.onclick = () => editarTarefa(tarefa.id, tarefa.nome);
+
+                const deletarBtn = document.createElement('button');
+                deletarBtn.textContent = 'Deletar';
+                deletarBtn.onclick = () => deletarTarefa(tarefa.id);
+
+                li.appendChild(editarBtn);
+                li.appendChild(document.createTextNode(' '));
+                li.appendChild(deletarBtn);
+                listaTarefas.appendChild(li);
+            });
+        }
+
+        // Handle form submit
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const nome = document.getElementById('nome').value;
+            const id = document.getElementById('tarefaId').value;
+
+            if (id) {
+                await fetch(`/tarefas/${id}`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-access-token': token
+                    },
+                    body: JSON.stringify({ nome })
+                });
+            } else {
+                await fetch('/tarefas', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-access-token': token
+                    },
+                    body: JSON.stringify({ nome })
+                });
+            }
+            form.reset();
+            document.getElementById('tarefaId').value = '';
+            carregarTarefas();
+        };
+
+        // Edit task
+        function editarTarefa(id, nome) {
+            document.getElementById('tarefaId').value = id;
+            document.getElementById('nome').value = nome;
+        }
+
+        // Delete task
+        async function deletarTarefa(id) {
+            await fetch(`/tarefas/${id}`, {
+                method: 'DELETE',
+                headers: { 'x-access-token': token }
+            });
+            carregarTarefas();
+        }
+
+        // Auto login on page load
+        autoLogin();
+    </script>
+</body>
+</html>
